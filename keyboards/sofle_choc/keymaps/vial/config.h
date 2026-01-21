@@ -44,3 +44,19 @@
 #define RGB_MATRIX_KEYPRESSES
 
 #define BACKLIGHT_BREATHING
+
+// For RGB Matrix (per-key RGB)
+#ifdef RGB_MATRIX_ENABLE
+#define VIAL_ENABLE_RGB_MATRIX
+#endif
+
+// For RGBLight (underglow)
+#ifdef RGBLIGHT_ENABLE
+#define VIAL_ENABLE_RGBLIGHT
+#endif
+
+// Add to config.h to sync layer state to slave
+#define SPLIT_LAYER_STATE_ENABLE
+#define SPLIT_LED_STATE_ENABLE
+#define SPLIT_MODS_ENABLE
+#define SPLIT_WPM_ENABLE
