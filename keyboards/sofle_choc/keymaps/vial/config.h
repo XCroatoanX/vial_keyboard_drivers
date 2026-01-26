@@ -60,3 +60,5 @@
 #define SPLIT_LED_STATE_ENABLE
 #define SPLIT_MODS_ENABLE
 #define SPLIT_WPM_ENABLE
+
+#define OLED_FONT_H "../../lib/glcdfont.c"
