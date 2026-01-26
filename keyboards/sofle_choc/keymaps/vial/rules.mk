@@ -15,5 +15,3 @@ MOUSEKEY_ENABLE = yes
 COMBO_ENABLE = yes
 KEY_OVERRIDE_ENABLE = yes
 RGB_MATRIX_ENABLE = yes
-
-SRC += ../../luna.c

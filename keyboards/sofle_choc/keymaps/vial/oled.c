@@ -1,11 +1,11 @@
-#include "../../luna.h"
-
-oled_rotation_t oled_init_user(oled_rotation_t rotation) {
+oled_rotation_t oled_init_user(oled_rotation_t rotation) { 
     if (is_keyboard_master()) {
-        return OLED_ROTATION_270;  // Master: 270 degrees
-    } else {
-        return OLED_ROTATION_0;   // Slave: 180 degrees
+        return OLED_ROTATION_270;
+    } else
+    {
+        return OLED_ROTATION_0;
     }
+    
 }
 
 void render_space(void) {
@@ -23,7 +23,9 @@ void render_space(void) {
 #    define ANIM_SIZE           96   // number of bytes in array. If you change sprites, minimize for adequate firmware size. max is 1024
 
 /* timers */
+// static uint16_t key_timer; // timer to track the last keyboard activity
 uint32_t anim_timer = 0;
+uint32_t anim_sleep = 0;
 
 /* current frame */
 uint8_t current_frame = 0;
@@ -33,6 +35,7 @@ int   current_wpm = 0;
 led_t led_usb_state;
 
 bool isSneaking = false;
+bool isBarking = false;
 bool isJumping  = false;
 bool showedJump = true;
 
@@ -114,44 +117,32 @@ static void render_luna(int LUNA_X, int LUNA_Y) {
         current_frame = (current_frame + 1) % 2;
 
         /* current status */
-        if (led_usb_state.caps_lock) {
-            oled_write_raw_P(bark[current_frame], ANIM_SIZE);
+        if (isBarking) {
+            oled_write_raw_P(bark[abs(1 - current_frame)], ANIM_SIZE);
 
         } else if (isSneaking) {
-            oled_write_raw_P(sneak[current_frame], ANIM_SIZE);
+            oled_write_raw_P(sneak[abs(1 - current_frame)], ANIM_SIZE);
 
         } else if (current_wpm <= MIN_WALK_SPEED) {
-            oled_write_raw_P(sit[current_frame], ANIM_SIZE);
+            oled_write_raw_P(sit[1], ANIM_SIZE);
 
         } else if (current_wpm <= MIN_RUN_SPEED) {
-            oled_write_raw_P(walk[current_frame], ANIM_SIZE);
+            oled_write_raw_P(walk[abs(1 - current_frame)], ANIM_SIZE);
 
         } else {
-            oled_write_raw_P(run[current_frame], ANIM_SIZE);
+            oled_write_raw_P(run[abs(1 - current_frame)], ANIM_SIZE);
         }
     }
-
-#    if OLED_TIMEOUT > 0
-    /* the animation prevents the normal timeout from occuring */
-    if (last_input_activity_elapsed() > OLED_TIMEOUT && last_led_activity_elapsed() > OLED_TIMEOUT) {
-        oled_off();
-        return;
-    } else {
-        oled_on();
-    }
-#    endif
 
     /* animation timer */
     if (timer_elapsed32(anim_timer) > ANIM_FRAME_DURATION) {
         anim_timer = timer_read32();
         animate_luna();
     }
+
 }
 
 /* KEYBOARD PET END */
-
-
-
 
 void render_mod_status_gui_alt(uint8_t modifiers) {
     static const char PROGMEM gui_off_1[] = {0x85, 0x86, 0};
@@ -304,9 +295,9 @@ void render_layer_state(void) {
         0x20, 0xdd, 0xde, 0xdf, 0x20, 0};
     if(layer_state_is(3)) {
         oled_write_P(adjust_layer, false);
-    } else if(layer_state_is(2)) {
-        oled_write_P(lower_layer, false);
     } else if(layer_state_is(1)) {
+        oled_write_P(lower_layer, false);
+    } else if(layer_state_is(2)) {
         oled_write_P(raise_layer, false);
     } else {
         oled_write_P(default_layer, false);
@@ -315,37 +306,63 @@ void render_layer_state(void) {
 
 
 static void render_logo(void) {
-// logo图像，在https://joric.github.io/qle/生成，需要做成32*128大小的，然后把“static const unsigned char”改成“static const char”
-    static const char PROGMEM raw_logo[] ={
-         0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91, 0x92, 0x93, 0x94,
+    static const char PROGMEM simple_image[] = {
+        // QMK LOGO
+        0x80, 0x81, 0x82, 0x83, 0x84, 0x85, 0x86, 0x87, 0x88, 0x89, 0x8a, 0x8b, 0x8c, 0x8d, 0x8e, 0x8f, 0x90, 0x91, 0x92, 0x93, 0x94,
         0xa0, 0xa1, 0xa2, 0xa3, 0xa4, 0xa5, 0xa6, 0xa7, 0xa8, 0xa9, 0xaa, 0xab, 0xac, 0xad, 0xae, 0xaf, 0xb0, 0xb1, 0xb2, 0xb3, 0xb4,
         0xc0, 0xc1, 0xc2, 0xc3, 0xc4, 0xc5, 0xc6, 0xc7, 0xc8, 0xc9, 0xca, 0xcb, 0xcc, 0xcd, 0xce, 0xcf, 0xd0, 0xd1, 0xd2, 0xd3, 0xd4,
         0
     };
-   oled_write_P(raw_logo, false);
+    // oled_write_raw_P(simple_image, sizeof(simple_image));
+    // Below for simple logo like QMK LOGO
+    oled_write_P(simple_image, false);
 }
 
-bool process_record_user(uint16_t keycode, keyrecord_t *record) {
-    return pet_process_record(keycode, record);
-}
 
 
 bool oled_task_user(void) {
     // Renders the current keyboard state (layers and mods)
+        /* KEYBOARD PET VARIABLES START */
+
     if (is_keyboard_master()) {
-        uint8_t wpm = get_current_wpm();
-        led_t   usb = host_keyboard_led_state();
-        pet_update_state(wpm, usb);
+        current_wpm   = get_current_wpm();
+        led_usb_state = host_keyboard_led_state();
 
         oled_set_cursor(0, 1);
         render_luna(0, 1);
         oled_set_cursor(0, 5);
         render_layer_state();
         oled_set_cursor(0, 10);
-        render_mod_status_gui_alt(get_mods() | get_oneshot_mods());
-        render_mod_status_ctrl_shift(get_mods() | get_oneshot_mods());
+        render_mod_status_gui_alt(get_mods()|get_oneshot_mods());
+        render_mod_status_ctrl_shift(get_mods()|get_oneshot_mods());
     } else {
         render_logo();  // Renders a static logo
     }
     return false;
+}
+
+bool process_record_user(uint16_t keycode, keyrecord_t *record) {
+    switch (keycode) {
+        /* KEYBOARD PET STATUS START */
+
+        case KC_LCTL:
+        case KC_RCTL:
+            if (record->event.pressed) {
+                isSneaking = true;
+            } else {
+                isSneaking = false;
+            }
+            break;
+        case KC_SPC:
+            if (record->event.pressed) {
+                isJumping  = true;
+                showedJump = false;
+            } else {
+                isJumping = false;
+            }
+            break;
+
+            /* KEYBOARD PET STATUS END */
+    }
+    return true;
 }
